@@ -1,0 +1,6 @@
+{
+    "remove_stopwords": true,
+    "max_length": 128,
+    "train_test_split": 0.2,
+    "random_state": 42
+}

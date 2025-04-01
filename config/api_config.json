@@ -1,0 +1,13 @@
+{
+    "model_path": "./models/best_model.pt",
+    "host": "0.0.0.0",
+    "port": 5000,
+    "debug": false,
+    "device": "cuda",
+    "max_workers": 10,
+    "label_mapping": {
+        "0": "negative",
+        "1": "neutral",
+        "2": "positive"
+    }
+}

@@ -1,0 +1,14 @@
+{
+    "data_dir": "data/processed_data",
+    "output_dir": "data/models",
+    "config": "./config/model_config.json",
+    "batch_size": 16,
+    "epochs": 4,
+    "lr": 2e-05,
+    "weight_decay": 0.01,
+    "warmup_ratio": 0.1,
+    "device": "cuda",
+    "model_name": "bert-base-uncased",
+    "num_classes": 3,
+    "seed": 42
+}

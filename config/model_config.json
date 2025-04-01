@@ -1,0 +1,12 @@
+{
+    "model_name": "bert-base-uncased",
+    "num_classes": 3,
+    "batch_size": 16,
+    "epochs": 4,
+    "learning_rate": 2e-5,
+    "weight_decay": 0.01,
+    "warmup_ratio": 0.1,
+    "max_length": 128,
+    "dropout_prob": 0.1,
+    "seed": 42
+}
