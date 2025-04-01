@@ -290,45 +290,57 @@ def run_load_test():
         
         while time.time() < worker_end:
             try:
-                batch_texts = random.sample(texts, min(batch_size, len(texts)))
+                # Select random texts for the batch
+                selected_texts = random.sample(texts, min(batch_size, len(texts)))
                 request_start = time.time()
                 
                 if batch_size > 1:
-                    response = predict_batch(batch_texts)
+                    # Process batch request
+                    predictions = []
+                    for text in selected_texts:
+                        prediction = predict_sentiment(text)
+                        predictions.append(prediction)
                     request_type = 'batch'
                 else:
-                    response = predict_sentiment(batch_texts[0])
+                    # Process single request
+                    predictions = [predict_sentiment(selected_texts[0])]
                     request_type = 'single'
                 
                 request_end = time.time()
+                response_time = request_end - request_start
                 
+                # Store result
                 results.append({
                     'timestamp': request_start - start_time,
-                    'response_time': request_end - request_start,
+                    'response_time': response_time,
                     'success': True,
                     'request_type': request_type,
-                    'batch_size': len(batch_texts)
+                    'batch_size': len(selected_texts),
+                    'predictions': predictions
                 })
                 
-                # Add think time
-                time.sleep(max(0.1, random.normalvariate(think_time, think_time / 4)))
+                # Add think time with randomization
+                think_duration = max(0.1, random.normalvariate(think_time, think_time / 4))
+                time.sleep(think_duration)
             
             except Exception as e:
+                error_time = time.time()
                 errors.append({
-                    'timestamp': time.time() - start_time,
+                    'timestamp': error_time - start_time,
                     'error': str(e)
                 })
-                time.sleep(1)  # Sleep on error
+                logger.error(f"Worker error: {str(e)}")
+                time.sleep(1)  # Sleep on error to avoid flooding
     
     # Start workers with ramp-up
     with ThreadPoolExecutor(max_workers=users) as executor:
+        futures = []
+        
         if ramp_up > 0 and users > 1:
             users_per_step = max(1, users // 10)
             step_duration = ramp_up / (users / users_per_step)
             
-            futures = []
             active_workers = 0
-            
             for i in range(0, users, users_per_step):
                 end_index = min(i + users_per_step, users)
                 for _ in range(i, end_index):
@@ -336,14 +348,18 @@ def run_load_test():
                     active_workers += 1
                 
                 logger.info(f"Started {active_workers}/{users} workers")
-                time.sleep(step_duration)
+                if i + users_per_step < users:  # Don't sleep after last batch
+                    time.sleep(step_duration)
         else:
             # Start all workers at once
             futures = [executor.submit(worker_task) for _ in range(users)]
         
         # Wait for all workers to complete
         for future in futures:
-            future.result()
+            try:
+                future.result()
+            except Exception as e:
+                logger.error(f"Worker thread error: {str(e)}")
     
     # Calculate metrics
     if not results:
@@ -372,6 +388,22 @@ def run_load_test():
                 'p95': np.percentile(times, 95) if len(times) > 1 else times[0]
             })
     
+    # Calculate sentiment distribution
+    sentiment_counts = defaultdict(int)
+    total_predictions = 0
+    for r in results:
+        for pred in r['predictions']:
+            sentiment_counts[pred['sentiment']] += 1
+            total_predictions += 1
+    
+    sentiment_distribution = {
+        sentiment: {
+            'count': count,
+            'percentage': (count / total_predictions * 100) if total_predictions > 0 else 0
+        }
+        for sentiment, count in sentiment_counts.items()
+    }
+    
     # Prepare results
     test_results = {
         'total_requests': total_requests,
@@ -388,7 +420,9 @@ def run_load_test():
             'p95': np.percentile([r['response_time'] for r in results], 95),
             'p99': np.percentile([r['response_time'] for r in results], 99)
         },
-        'response_time_series': response_time_series
+        'response_time_series': response_time_series,
+        'sentiment_distribution': sentiment_distribution,
+        'errors': errors[:100]  # Include first 100 errors for debugging
     }
     
     logger.info(f"Load test completed: {total_requests} requests, "
