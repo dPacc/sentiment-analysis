@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import axios from "axios";
 import { Bar } from "react-chartjs-2";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -23,6 +22,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import api from "../api";
 
 // Register Chart.js components
 ChartJS.register(
@@ -33,14 +33,6 @@ ChartJS.register(
   Tooltip,
   Legend
 );
-
-// Create axios instance with base URL
-const api = axios.create({
-  baseURL: "http://localhost:8080",
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
 
 const SentimentAnalyzer = () => {
   const [text, setText] = useState("");

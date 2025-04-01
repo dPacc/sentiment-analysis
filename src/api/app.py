@@ -13,6 +13,10 @@ import json
 import time
 from concurrent.futures import ThreadPoolExecutor
 import threading
+import random
+import statistics
+import numpy as np
+from collections import defaultdict
 
 # Local imports
 from ..models.model import load_model
@@ -241,6 +245,159 @@ def stats():
     return jsonify({
         'status': 'success',
         'data': stats
+    }), 200
+
+@app.route('/api/load-test', methods=['POST'])
+def run_load_test():
+    """
+    Run a load test on the sentiment analysis API.
+    
+    Returns:
+        JSON: Load test results.
+    """
+    data = request.get_json()
+    
+    if not data or 'texts' not in data:
+        return jsonify({'status': 'error', 'message': 'Missing texts field'}), 400
+    
+    # Get load test parameters
+    texts = data['texts']
+    users = data.get('users', 10)
+    duration = data.get('duration', 30)
+    ramp_up = data.get('rampUp', 5)
+    batch_size = data.get('batchSize', 1)
+    think_time = data.get('thinkTime', 1.0)
+    
+    # Validate parameters
+    if not texts:
+        return jsonify({'status': 'error', 'message': 'No texts provided'}), 400
+    if users <= 0:
+        return jsonify({'status': 'error', 'message': 'Invalid number of users'}), 400
+    if duration <= 0:
+        return jsonify({'status': 'error', 'message': 'Invalid duration'}), 400
+    
+    logger.info(f"Starting load test with {users} users for {duration} seconds")
+    
+    # Initialize results storage
+    results = []
+    errors = []
+    start_time = time.time()
+    
+    def worker_task():
+        """Task for each worker thread."""
+        worker_start = time.time()
+        worker_end = worker_start + duration
+        
+        while time.time() < worker_end:
+            try:
+                batch_texts = random.sample(texts, min(batch_size, len(texts)))
+                request_start = time.time()
+                
+                if batch_size > 1:
+                    response = predict_batch(batch_texts)
+                    request_type = 'batch'
+                else:
+                    response = predict_sentiment(batch_texts[0])
+                    request_type = 'single'
+                
+                request_end = time.time()
+                
+                results.append({
+                    'timestamp': request_start - start_time,
+                    'response_time': request_end - request_start,
+                    'success': True,
+                    'request_type': request_type,
+                    'batch_size': len(batch_texts)
+                })
+                
+                # Add think time
+                time.sleep(max(0.1, random.normalvariate(think_time, think_time / 4)))
+            
+            except Exception as e:
+                errors.append({
+                    'timestamp': time.time() - start_time,
+                    'error': str(e)
+                })
+                time.sleep(1)  # Sleep on error
+    
+    # Start workers with ramp-up
+    with ThreadPoolExecutor(max_workers=users) as executor:
+        if ramp_up > 0 and users > 1:
+            users_per_step = max(1, users // 10)
+            step_duration = ramp_up / (users / users_per_step)
+            
+            futures = []
+            active_workers = 0
+            
+            for i in range(0, users, users_per_step):
+                end_index = min(i + users_per_step, users)
+                for _ in range(i, end_index):
+                    futures.append(executor.submit(worker_task))
+                    active_workers += 1
+                
+                logger.info(f"Started {active_workers}/{users} workers")
+                time.sleep(step_duration)
+        else:
+            # Start all workers at once
+            futures = [executor.submit(worker_task) for _ in range(users)]
+        
+        # Wait for all workers to complete
+        for future in futures:
+            future.result()
+    
+    # Calculate metrics
+    if not results:
+        return jsonify({
+            'status': 'error',
+            'message': 'No results collected during the test'
+        }), 500
+    
+    total_requests = len(results)
+    successful_requests = sum(1 for r in results if r['success'])
+    total_duration = time.time() - start_time
+    
+    # Calculate response time series (1-second buckets)
+    time_buckets = defaultdict(list)
+    for r in results:
+        bucket = int(r['timestamp'])
+        time_buckets[bucket].append(r['response_time'])
+    
+    response_time_series = []
+    for t in range(int(total_duration) + 1):
+        times = time_buckets.get(t, [])
+        if times:
+            response_time_series.append({
+                'timestamp': t,
+                'mean': statistics.mean(times),
+                'p95': np.percentile(times, 95) if len(times) > 1 else times[0]
+            })
+    
+    # Prepare results
+    test_results = {
+        'total_requests': total_requests,
+        'successful_requests': successful_requests,
+        'success_rate': (successful_requests / total_requests * 100) if total_requests > 0 else 0,
+        'total_errors': len(errors),
+        'test_duration': total_duration,
+        'throughput': total_requests / total_duration,
+        'response_time': {
+            'min': min(r['response_time'] for r in results),
+            'max': max(r['response_time'] for r in results),
+            'mean': statistics.mean(r['response_time'] for r in results),
+            'median': statistics.median(r['response_time'] for r in results),
+            'p95': np.percentile([r['response_time'] for r in results], 95),
+            'p99': np.percentile([r['response_time'] for r in results], 99)
+        },
+        'response_time_series': response_time_series
+    }
+    
+    logger.info(f"Load test completed: {total_requests} requests, "
+                f"{test_results['success_rate']:.1f}% success rate, "
+                f"{test_results['throughput']:.2f} req/s")
+    
+    return jsonify({
+        'status': 'success',
+        'data': test_results
     }), 200
 
 def start_server(model_path, host='0.0.0.0', port=5000, debug=False, device_name='cuda'):

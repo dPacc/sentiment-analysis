@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   ThemeProvider,
   createTheme,
@@ -8,9 +8,13 @@ import {
   Container,
   Typography,
   Box,
+  Tabs,
+  Tab,
+  Paper,
 } from "@mui/material";
 import { motion } from "framer-motion";
 import SentimentAnalyzer from "./components/SentimentAnalyzer";
+import BulkAnalyzer from "./components/BulkAnalyzer";
 import "./App.css";
 
 // Create a custom theme
@@ -55,6 +59,12 @@ const theme = createTheme({
 });
 
 function App() {
+  const [activeTab, setActiveTab] = useState(0);
+
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -137,7 +147,23 @@ function App() {
               Understand the emotions behind your text
             </Typography>
           </motion.div>
-          <SentimentAnalyzer />
+          <Paper sx={{ mb: 3 }}>
+            <Tabs
+              value={activeTab}
+              onChange={handleTabChange}
+              centered
+              sx={{
+                "& .MuiTab-root": {
+                  fontSize: "1.1rem",
+                  py: 2,
+                },
+              }}
+            >
+              <Tab label="Single Analysis" />
+              <Tab label="Bulk Analysis & Testing" />
+            </Tabs>
+          </Paper>
+          {activeTab === 0 ? <SentimentAnalyzer /> : <BulkAnalyzer />}
         </Container>
 
         <Box
