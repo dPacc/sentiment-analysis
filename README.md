@@ -168,11 +168,14 @@ sentiment-analysis-project/
 2. Manually:
 
    ```bash
+
 <<<<<<< HEAD
    python -m src.api.app --model_path ./models/best_model.pt --host 0.0.0.0 --port 5000
 =======
+
    python -m src.api.app --model_path ./models/best_model.pt --host 0.0.0.0 --port 5010
 >>>>>>> bbea846 (add: react client and connect to the api)
+
    ```
 
    This will start the Flask API server on the specified host and port.
@@ -223,11 +226,7 @@ Response:
 #### Batch Prediction
 
 ```bash
-<<<<<<< HEAD
-curl -X POST http://localhost:5000/api/batch-sentiment \
-=======
 curl -X POST http://localhost:5010/api/batch-sentiment \
->>>>>>> bbea846 (add: react client and connect to the api)
     -H "Content-Type: application/json" \
     -d '{"texts": ["I love this product!", "This is terrible.", "It works as expected."]}'
 ```

@@ -1,6 +1,19 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { Bar } from "react-chartjs-2";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Paper,
+  TextField,
+  Button,
+  Box,
+  Typography,
+  CircularProgress,
+  Alert,
+  Chip,
+  Fade,
+} from "@mui/material";
+import SendIcon from "@mui/icons-material/Send";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -66,6 +79,19 @@ const SentimentAnalyzer = () => {
     }
   };
 
+  const getSentimentColor = (sentiment) => {
+    switch (sentiment) {
+      case "positive":
+        return "#4caf50";
+      case "neutral":
+        return "#2196f3";
+      case "negative":
+        return "#f44336";
+      default:
+        return "#757575";
+    }
+  };
+
   // Prepare chart data if we have results
   const chartData = result
     ? {
@@ -79,14 +105,14 @@ const SentimentAnalyzer = () => {
               result.probabilities.positive,
             ],
             backgroundColor: [
-              "rgba(255, 99, 132, 0.6)",
-              "rgba(54, 162, 235, 0.6)",
-              "rgba(75, 192, 192, 0.6)",
+              "rgba(244, 67, 54, 0.6)",
+              "rgba(33, 150, 243, 0.6)",
+              "rgba(76, 175, 80, 0.6)",
             ],
             borderColor: [
-              "rgba(255, 99, 132, 1)",
-              "rgba(54, 162, 235, 1)",
-              "rgba(75, 192, 192, 1)",
+              "rgba(244, 67, 54, 1)",
+              "rgba(33, 150, 243, 1)",
+              "rgba(76, 175, 80, 1)",
             ],
             borderWidth: 1,
           },
@@ -101,6 +127,9 @@ const SentimentAnalyzer = () => {
       y: {
         beginAtZero: true,
         max: 1,
+        ticks: {
+          callback: (value) => `${(value * 100).toFixed(0)}%`,
+        },
       },
     },
     plugins: {
@@ -110,45 +139,124 @@ const SentimentAnalyzer = () => {
       title: {
         display: true,
         text: "Sentiment Analysis Results",
+        font: {
+          size: 16,
+          weight: "bold",
+        },
+      },
+      tooltip: {
+        callbacks: {
+          label: (context) => `${(context.raw * 100).toFixed(1)}%`,
+        },
       },
     },
   };
 
   return (
-    <div>
-      <form className="sentiment-form" onSubmit={handleSubmit}>
-        <textarea
+    <Box sx={{ width: "100%", maxWidth: 800, mx: "auto" }}>
+      <Paper
+        component="form"
+        onSubmit={handleSubmit}
+        elevation={2}
+        sx={{
+          p: 3,
+          borderRadius: 2,
+          backgroundColor: "background.paper",
+        }}
+      >
+        <TextField
+          fullWidth
+          multiline
+          rows={4}
+          variant="outlined"
+          placeholder="Enter your text here to analyze its sentiment..."
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Enter text to analyze sentiment..."
-          required
+          disabled={loading}
+          sx={{ mb: 2 }}
         />
-        <button type="submit" disabled={loading}>
-          {loading ? "Analyzing..." : "Analyze Sentiment"}
-        </button>
-      </form>
+        <Box sx={{ display: "flex", justifyContent: "center" }}>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={loading}
+            endIcon={loading ? <CircularProgress size={20} /> : <SendIcon />}
+            sx={{
+              minWidth: 200,
+              height: 48,
+              fontSize: "1.1rem",
+            }}
+          >
+            {loading ? "Analyzing..." : "Analyze Sentiment"}
+          </Button>
+        </Box>
+      </Paper>
 
-      {error && (
-        <div className="result-container" style={{ color: "red" }}>
-          {error}
-        </div>
-      )}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {error}
+            </Alert>
+          </motion.div>
+        )}
 
-      {result && !error && (
-        <div className="result-container">
-          <h3>Analysis Results</h3>
-          <p>
-            Sentiment:{" "}
-            <span className={result.sentiment}>{result.sentiment}</span>
-          </p>
-          <p>Confidence: {(result.confidence * 100).toFixed(2)}%</p>
-          <div className="chart-container">
-            <Bar data={chartData} options={chartOptions} />
-          </div>
-          <p>Processing time: {result.processing_time.toFixed(4)} seconds</p>
-        </div>
-      )}
-    </div>
+        {result && !error && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <Paper elevation={2} sx={{ mt: 3, p: 3, borderRadius: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Analysis Results
+              </Typography>
+
+              <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                <Typography variant="body1" sx={{ mr: 1 }}>
+                  Sentiment:
+                </Typography>
+                <Chip
+                  label={result.sentiment.toUpperCase()}
+                  sx={{
+                    backgroundColor: getSentimentColor(result.sentiment),
+                    color: "white",
+                    fontWeight: "bold",
+                  }}
+                />
+              </Box>
+
+              <Typography variant="body1" gutterBottom>
+                Confidence:{" "}
+                <Box
+                  component="span"
+                  sx={{ fontWeight: "bold", color: "primary.main" }}
+                >
+                  {(result.confidence * 100).toFixed(2)}%
+                </Box>
+              </Typography>
+
+              <Box sx={{ height: 300, mt: 3 }}>
+                <Bar data={chartData} options={chartOptions} />
+              </Box>
+
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ mt: 2, textAlign: "right" }}
+              >
+                Processing time: {result.processing_time.toFixed(4)} seconds
+              </Typography>
+            </Paper>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </Box>
   );
 };
 
