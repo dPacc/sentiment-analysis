@@ -169,12 +169,8 @@ sentiment-analysis-project/
 
    ```bash
 
-<<<<<<< HEAD
-   python -m src.api.app --model_path ./models/best_model.pt --host 0.0.0.0 --port 5000
-=======
 
    python -m src.api.app --model_path ./models/best_model.pt --host 0.0.0.0 --port 5010
->>>>>>> bbea846 (add: react client and connect to the api)
 
    ```
 
@@ -194,11 +190,7 @@ sentiment-analysis-project/
 #### Single Prediction
 
 ```bash
-<<<<<<< HEAD
-curl -X POST http://localhost:5000/api/sentiment \
-=======
 curl -X POST http://localhost:5010/api/sentiment \
->>>>>>> bbea846 (add: react client and connect to the api)
     -H "Content-Type: application/json" \
     -d '{"text": "I love this new product! It works great."}'
 ```
